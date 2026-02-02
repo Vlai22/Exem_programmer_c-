@@ -1,6 +1,7 @@
-#include <windows.h>
+﻿#include <windows.h>
 #include <iostream>
 #include <string>
+
 void WriteLineColor(HANDLE hConsloe, int x, int y, std::wstring  line, WORD color){
     COORD pos = {(SHORT) x, (SHORT) y};
     DWORD written;    
@@ -28,6 +29,8 @@ int main() {
     //выставляем кодировку консоли в utf-8
     SetConsoleCP(65001);
     SetConsoleOutputCP(65001);
+    //_setmode(_fileno(stdout), _O_U16TEXT); // Включаем UTF-16 для вывода
+    //_setmode(_fileno(stdin), _O_U16TEXT);  // Включаем UTF-16 для ввода
     //переменные работы с Windows API консоли
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE);
@@ -51,16 +54,15 @@ int main() {
     int timer = 0;
     int timer_exam = 0;
     //ввод с клавиатуры системный
-    std::string input;
-
+    std::wstring input;
     //пременные данных пользователя
-    std::string name_admin;
-    std::string name_user;
+    std::wstring name_admin;
+    std::wstring name_user;
     //получение разамеров текущей консоли
     if (!GetConsoleScreenBufferInfo(hConsole, &csbi)) return 0;
     dwConSize = csbi.dwSize.X * csbi.dwSize.Y;
     //  залитие всего простарнства пробелами
-    if (!FillConsoleOutputCharacter(hConsole, (TCHAR)' ', dwConSize, coordScreen, &cCharsWritten)) return 0;
+    if (!FillConsoleOutputCharacterW(hConsole, L' ', dwConSize, coordScreen, &cCharsWritten)) return 0;
     // сброс всех аттрибутов 
     if (!FillConsoleOutputAttribute(hConsole, csbi.wAttributes, dwConSize, coordScreen, &cCharsWritten)) return 0;
     while(run){
@@ -69,6 +71,7 @@ int main() {
         WriteLineColor(hConsole, 0, 20, L"Управление: стрелки вверx и вниз для выбора параметров, Enter для выбора единичного или множественного, для выхода в главное меню используйте Esc, для полного выхода используйте CTRL+Q", FOREGROUND_RED | FOREGROUND_GREEN);
         //отрисовка меню 
         if(menu == 1){
+            ClearPole(hConsole, 0, 2, 80, 15);
             WriteLineColor(hConsole, 10, 2, L"Вписать своё имя и фамилию", menu_input == 1 ? FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN | BACKGROUND_BLUE : FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN);
             WriteLineColor(hConsole, 10, 3, L"Перейти к экзамену", menu_input == 2 ? FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN | BACKGROUND_BLUE : FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN);
         }else if(menu == 0){
@@ -76,10 +79,14 @@ int main() {
             WriteLineColor(hConsole, 0, 19, L"Вы не можожете выйти до тех пор пока не введёте корректно своё имя и фамилию или не прорешаете экзамен!!", FOREGROUND_RED);
         }else if(menu == 3){
             ClearPole(hConsole, 0, 2, 80, 15);
+            WriteLineColor(hConsole, 0, 3, input , FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
+            WriteLineColor(hConsole, 0, 19, L"Введите своё имя и фамилию на английском языке исключительно!!!", FOREGROUND_RED);
         }else if(menu == 4){
             ClearPole(hConsole, 0, 2, 80, 15);
         }else if(menu == 2){
             ClearPole(hConsole, 0, 2, 80, 15);
+            WriteLineColor(hConsole, 0, 3, input , FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
+            WriteLineColor(hConsole, 0, 19, L"Введите имя студента которого вы туда посадили!! На английском!!!", FOREGROUND_RED);
         }
         //ввод в консоль
         ReadConsoleInput(hInput, &ir, 1, &eventsRead);
@@ -87,31 +94,13 @@ int main() {
         if(ir.EventType == KEY_EVENT && ir.Event.KeyEvent.bKeyDown){
             DWORD modifiers  = ir.Event.KeyEvent.dwControlKeyState;
             WORD keyCode = ir.Event.KeyEvent.wVirtualKeyCode;
+            wchar_t unicodeChar = ir.Event.KeyEvent.uChar.UnicodeChar;
             //сочетание клавиш ctrl+q ctrl+s
             bool ctrlPress = false;
             if((modifiers & LEFT_CTRL_PRESSED) || (modifiers & RIGHT_CTRL_PRESSED)){
                 ctrlPress = true;
             }else{
                 ctrlPress = false;
-            }
-            if(keyCode == VK_RETURN){
-                if(menu == 1){
-                    if(menu_input == 1){
-                        menu = 3;
-                    }else if(menu_input == 2){
-                        menu = 4;
-                    }
-                }else if(menu == 2){
-                    name_admin = input;
-                }
-            }else if(keyCode == VK_ESCAPE){
-                if(menu != 1){
-                    menu = 1;
-                }
-            }else if(keyCode == VK_UP){
-                menu_input = (menu_input > 1) ? menu_input - 1 : menu_size;
-            }else if(keyCode == VK_DOWN){
-                menu_input = (menu_input < menu_size) ? menu_input + 1 : 1;
             }
             if(ctrlPress){
                 if(keyCode == 'Q'){
@@ -122,10 +111,38 @@ int main() {
                     }
                 }else if(keyCode == 'S'){
                     menu = 2;
-                    WriteLineColor(hConsole, 0, 19, L"Введите имя студента которого вы туда посадили!!", FOREGROUND_RED);
+                    input = L"";
                 }
             }
-
+            if(unicodeChar != 0 && (menu == 2 || menu == 3) && unicodeChar != 13){
+                input += unicodeChar;
+            }
+            if(keyCode == VK_RETURN){
+                if(menu == 1){
+                    if(menu_input == 1){
+                        menu = 3;
+                        input = L"";
+                    }else if(menu_input == 2){
+                        menu = 4;
+                    }
+                }else if(menu == 2){
+                    name_admin = input;
+                    menu = 1;
+                }else if(menu == 3){
+                    name_user = input;
+                    menu = 1;
+                }
+            }else if(keyCode == VK_ESCAPE){
+                if(menu != 1){
+                    menu = 1;
+                }
+            }else if(keyCode == VK_UP){
+                menu_input = (menu_input > 1) ? menu_input - 1 : menu_size;
+            }else if(keyCode == VK_DOWN){
+                menu_input = (menu_input < menu_size) ? menu_input + 1 : 1;
+            }else if(keyCode == VK_BACK){
+                input = input.substr(0, input.length()-2);
+            }
         }
     }
     return 0;
