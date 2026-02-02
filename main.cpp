@@ -72,7 +72,16 @@ int main() {
     int menu_quetion = 0;
     //работа со временем
     int timer = 0;
+    //время с начала экзамена
     int timer_exam = 0;
+    //запуск таймера после захода в вопросы выходить из вопросов нельзя
+    bool timer_exam_start = false;
+    //переменная для посчёта милессекунд
+    double interval = 0;
+    //переменная частоты необходима для подсчёта задержки
+    LARGE_INTEGER frequency;
+    //переменные начала и конца отчёта
+    LARGE_INTEGER start, end;
     //ввод с клавиатуры системный
     std::string input;
     //пременные данных пользователя
@@ -127,7 +136,10 @@ int main() {
         }
     }
     std::uniform_int_distribution<> dist_q(1, ques.size());
+    QueryPerformanceFrequency(&frequency);
     while(run){
+        //частота работы кода 
+        QueryPerformanceCounter(&start);
         //системные никогда не стрираемые атрибуты
         WriteLineColor(hConsole, 10, 0, "Программа для прохождения письменного экзамена", FOREGROUND_RED);
         WriteLineColor(hConsole, 0, 20, "Управление: стрелки вверx и вниз для выбора параметров, Enter для выбора единичного или множественного, для выхода в главное меню используйте Esc, для полного выхода используйте CTRL+Q", FOREGROUND_RED | FOREGROUND_GREEN);
@@ -144,21 +156,7 @@ int main() {
             WriteLineColor(hConsole, 0, 3, input , FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
             WriteLineColor(hConsole, 0, 19, "Введите своё имя и фамилию!!!", FOREGROUND_RED);
         }else if(menu == 4){
-            ClearPole(hConsole, 0, 2, 80, 15);
-            if(menu_quetion < 7){
-                int sid = dist_q(gen);
-                std::string que_value;
-                if(ques.at(sid).answer_status){
-                    que_value = (ques.at(sid).answer_arr) ? "Введите верные ответы на вопрос." : "Введите верный ответ на вопрос.";
-                }else{
-                    que_value = (ques.at(sid).answer_arr) ? "Введите неверные ответы на вопрос." : "Введите неверный ответ на вопрос.";
-                }
-                WriteLineColor(hConsole, 0, 3, ques.at(sid).title + que_value , FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
-                for(int i =0; i<ques.at(sid).answer.size(); i++){
-                    WriteLineColor(hConsole, 0, i+4, std::to_string(i) + ") " + ques.at(sid).answer.at(i) , FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
-                }
 
-            }
         }else if(menu == 2){
             ClearPole(hConsole, 0, 2, 80, 15);
             WriteLineColor(hConsole, 0, 3, input , FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
@@ -207,9 +205,22 @@ int main() {
                 }else if(menu == 3){
                     name_user = input;
                     menu = 1;
+                }else if(menu == 4){
+                    ClearPole(hConsole, 0, 2, 80, 15);
+                    int sid = dist_q(gen);
+                    std::string que_value;
+                    if(ques.at(sid).answer_status){
+                        que_value = (ques.at(sid).answer_arr) ? "Введите верные ответы на вопрос." : "Введите верный ответ на вопрос.";
+                    }else{
+                        que_value = (ques.at(sid).answer_arr) ? "Введите неверные ответы на вопрос." : "Введите неверный ответ на вопрос.";
+                    }
+                    WriteLineColor(hConsole, 0, 3, ques.at(sid).title + que_value , FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
+                    for(int i =0; i<ques.at(sid).answer.size(); i++){
+                        WriteLineColor(hConsole, 0, i+4, std::to_string(i) + ") " + ques.at(sid).answer.at(i) , (menu_input == i+1) ? FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN | BACKGROUND_BLUE : FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN);
+                    }
                 }
             }else if(keyCode == VK_ESCAPE){
-                if(menu != 1){
+                if(menu != 1 && menu != 4){
                     menu = 1;
                 }
             }else if(keyCode == VK_UP){
@@ -219,7 +230,11 @@ int main() {
             }else if(keyCode == VK_BACK){
                 input = input.substr(0, input.length()-2);
             }
-        }
+        }  
+        //вичисляем за сколько выполняется основной код для работы разных задержек
+        QueryPerformanceCounter(&end);
+        //получаем частоту в мс для нашего кода
+        interval = (double)(end.QuadPart - start.QuadPart) / frequency.QuadPart * 1000;
     }
     return 0;
 }
