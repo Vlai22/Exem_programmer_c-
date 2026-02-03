@@ -30,12 +30,15 @@ void ClearPole(HANDLE hConsole, int x, int y, int w, int h){
     WORD defaultAttr = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
     FillConsoleOutputAttribute(hConsole, defaultAttr, count, pos, &written);
 }
-
+struct answer{
+    std::string answer_str;
+    bool answer_click = false;
+};
 struct quetion{
     std::string title;
     int id;
     bool answer_arr;
-    std::vector <std::string> answer;
+    std::vector <answer> answers;
     bool answer_status;
     std::vector <std::string> answer_true;
     bool done = false;
@@ -89,6 +92,8 @@ int main() {
     std::string name_user;
     //вектор с вопросами
     std::vector <quetion> ques;
+    //массив вопросов
+    int arr_ques[10];
     //получение разамеров текущей консоли
     if (!GetConsoleScreenBufferInfo(hConsole, &csbi)) return 0;
     dwConSize = csbi.dwSize.X * csbi.dwSize.Y;
@@ -119,8 +124,8 @@ int main() {
             int i = 3;
             // Собираем ответы, пока не встретим true/false или не кончится массив
             while(i < arr.size() && arr.at(i) != "true" && arr.at(i) != "false") {
-                que.answer.push_back(arr.at(i));
-                i++; // НЕ ЗАБЫВАЕМ ИНКРЕМЕНТ
+                que.answers.push_back(answer(arr.at(i), false));
+                i++;
             }
             // Обработка оставшихся элементов
             if(i < arr.size()) {
@@ -135,7 +140,24 @@ int main() {
             ques.push_back(que);
         }
     }
-    std::uniform_int_distribution<> dist_q(1, ques.size());
+    std::uniform_int_distribution<> dist_q(0, ques.size()-1);
+    int a = 0;//получаем массив уникальных номеров вопросов рандомных
+    while(a < 10){
+        bool new_sid;
+        int sid = 0;
+        do{
+            new_sid = true;
+            sid = dist_q(gen)+1;
+            for(int i=0;i<10;i++){
+                if (arr_ques[i] == sid){
+                    new_sid = false;
+                    break;
+                }
+            }
+        }while(!new_sid);
+        arr_ques[a] = sid;
+        a++;
+    }
     QueryPerformanceFrequency(&frequency);
     while(run){
         //частота работы кода 
@@ -156,6 +178,25 @@ int main() {
             WriteLineColor(hConsole, 0, 3, input , FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
             WriteLineColor(hConsole, 0, 19, "Введите своё имя и фамилию!!!", FOREGROUND_RED);
         }else if(menu == 4){
+            ClearPole(hConsole, 0, 2, 80, 15);
+            //вывод вопросов осуществляется из общего списка по номеру который был выбран уникально рандомом, также что бы переключаться между 
+            //вопросами была добавленна паременная menu_quetion что бы мы были на рандомно выбранном вопросе первом втором и так далее
+            std::string que_value;
+            if(ques.at(arr_ques[menu_quetion]-1).answer_status){
+                que_value = (ques.at(arr_ques[menu_quetion]-1).answer_arr) ? "Введите неверные ответы на вопрос." : "Введите неверный ответ на вопрос.";
+            }else{
+                que_value = (ques.at(arr_ques[menu_quetion]-1).answer_arr) ? "Введите верные ответы на вопрос." : "Введите верный ответ на вопрос.";
+            }
+            WriteLineColor(hConsole, 0, 3, ques.at(arr_ques[menu_quetion]-1).title + que_value , FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
+            menu_size = ques.at(arr_ques[menu_quetion]-1).answers.size();
+            for(int i =0; i<ques.at(arr_ques[menu_quetion]-1).answers.size(); i++){
+                WriteLineColor(hConsole, 0, i+4, std::to_string(i) + ") " + ques.at(arr_ques[menu_quetion]-1).answers.at(i).answer_str , 
+                (menu_input == i + 1) ? (FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN | BACKGROUND_BLUE) // Курсор на кнопке (белый текст на синем)
+                : (ques.at(arr_ques[menu_quetion] - 1).answers.at(i).answer_click) 
+                ? (FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN | BACKGROUND_GREEN) // Выбрано (белый текст на зеленом)
+                : (FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN) // Обычное состояние (просто белый текст)
+            );
+            }
 
         }else if(menu == 2){
             ClearPole(hConsole, 0, 2, 80, 15);
@@ -206,18 +247,7 @@ int main() {
                     name_user = input;
                     menu = 1;
                 }else if(menu == 4){
-                    ClearPole(hConsole, 0, 2, 80, 15);
-                    int sid = dist_q(gen);
-                    std::string que_value;
-                    if(ques.at(sid).answer_status){
-                        que_value = (ques.at(sid).answer_arr) ? "Введите верные ответы на вопрос." : "Введите верный ответ на вопрос.";
-                    }else{
-                        que_value = (ques.at(sid).answer_arr) ? "Введите неверные ответы на вопрос." : "Введите неверный ответ на вопрос.";
-                    }
-                    WriteLineColor(hConsole, 0, 3, ques.at(sid).title + que_value , FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
-                    for(int i =0; i<ques.at(sid).answer.size(); i++){
-                        WriteLineColor(hConsole, 0, i+4, std::to_string(i) + ") " + ques.at(sid).answer.at(i) , (menu_input == i+1) ? FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN | BACKGROUND_BLUE : FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN);
-                    }
+                    ques.at(arr_ques[menu_quetion]-1).answers.at(menu_input-1).answer_click = !ques.at(arr_ques[menu_quetion]-1).answers.at(menu_input-1).answer_click;
                 }
             }else if(keyCode == VK_ESCAPE){
                 if(menu != 1 && menu != 4){
