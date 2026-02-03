@@ -4,8 +4,8 @@
 #include <sstream>
 #include <vector>
 #include <string>
-#include <cstdlib>
 #include <random>
+#include <chrono>
 
 void WriteLineColor(HANDLE hConsloe, int x, int y, std::string  line, WORD color){
     COORD pos = {(SHORT) x, (SHORT) y};
@@ -57,36 +57,29 @@ int main() {
     INPUT_RECORD ir;
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     DWORD dwConSize;
-
     //переменные работы с запуском и прекращением программы
     bool run = true;
     bool exit = false;
-
     //рандом
     std::random_device rd; 
     std::mt19937 gen(rd()); // rd() возвращает число, которое становится сидом для gen
-    // Чтобы получить число, используйте распределение:
-
-
     //переменные работы с меню
     int menu = 1;//меню 1 главное меню | меню 2 админ меню | меню 3 меню ввода имени | меню 4 меню вопросов | меню 0 меню ошибка выхода
     int menu_input = 1;
     int menu_size = 2;
     int menu_quetion = 0;
-    //работа со временем
-    int timer = 0;
+    // ненбольшие определения для упрощение кода не слишком вдавался в подробности хочеться побыстрее закончить а не разбираться 
+    using clock_t = std::chrono::steady_clock;
+    using time_point_t = std::chrono::time_point<clock_t>;
     //время с начала экзамена
-    int timer_exam = 0;
+    time_point_t timer_exam;
     //запуск таймера после захода в вопросы выходить из вопросов нельзя
     bool timer_exam_start = false;
-    //переменная для посчёта милессекунд
-    double interval = 0;
-    //переменная частоты необходима для подсчёта задержки
-    LARGE_INTEGER frequency;
-    //переменные начала и конца отчёта
-    LARGE_INTEGER start, end;
-    //ввод с клавиатуры системный
-    std::string input;
+    //переменная начала таймера 
+    time_point_t event_start;
+    //конец таймера
+    time_point_t event_end;
+    std::chrono::minutes duration(1);
     //пременные данных пользователя
     std::string name_admin;
     std::string name_user;
@@ -140,7 +133,8 @@ int main() {
             ques.push_back(que);
         }
     }
-    std::uniform_int_distribution<> dist_q(0, ques.size()-1);
+    file.close();
+    std::uniform_int_distribution<> dist_q(0, ques.size()-2);
     int a = 0;//получаем массив уникальных номеров вопросов рандомных
     while(a < 10){
         bool new_sid;
@@ -158,27 +152,26 @@ int main() {
         arr_ques[a] = sid;
         a++;
     }
-    QueryPerformanceFrequency(&frequency);
     while(run){
-        //частота работы кода 
-        QueryPerformanceCounter(&start);
+        //отключаем CTRL+C что бы не выключалось приложение
+        SetConsoleCtrlHandler(NULL, TRUE);
         //системные никогда не стрираемые атрибуты
         WriteLineColor(hConsole, 10, 0, "Программа для прохождения письменного экзамена", FOREGROUND_RED);
-        WriteLineColor(hConsole, 0, 20, "Управление: стрелки вверx и вниз для выбора параметров, Enter для выбора единичного или множественного, для выхода в главное меню используйте Esc, для полного выхода используйте CTRL+Q", FOREGROUND_RED | FOREGROUND_GREEN);
+        WriteLineColor(hConsole, 0, 20, "Перед началом экзамена и приступания к вопросам перейдите в первое меню и введите ваше ФИО. Затем зайдите в экзамен второй пункт главного меню. После входа в экзамен начнётся 30 минутный таймер по истечению вас выкинет в главное меню. Если вы не ввели ФИО введите его. Управление: стрелки вверx и вниз для выбора параметров, Enter для выбора единичного или множественного ответа, для выхода в главное меню используйте Esc, для полного выхода используйте CTRL+Q, CTRL+D следующий вопрос, CTRL+X предыдущий вопрос", FOREGROUND_RED | FOREGROUND_GREEN);
         //отрисовка меню 
         if(menu == 1){
-            ClearPole(hConsole, 0, 2, 80, 15);
+            ClearPole(hConsole, 0, 2, 80, 30);
             WriteLineColor(hConsole, 10, 2, "Вписать своё имя и фамилию", menu_input == 1 ? FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN | BACKGROUND_BLUE : FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN);
             WriteLineColor(hConsole, 10, 3, "Перейти к экзамену", menu_input == 2 ? FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN | BACKGROUND_BLUE : FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN);
         }else if(menu == 0){
-            ClearPole(hConsole, 0, 2, 80, 15);
+            ClearPole(hConsole, 0, 2, 80, 30);
             WriteLineColor(hConsole, 0, 19, "Вы не можожете выйти до тех пор пока не введёте корректно своё имя и фамилию или не прорешаете экзамен!!", FOREGROUND_RED);
         }else if(menu == 3){
-            ClearPole(hConsole, 0, 2, 80, 15);
-            WriteLineColor(hConsole, 0, 3, input , FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
+            ClearPole(hConsole, 0, 2, 80, 30);
+            WriteLineColor(hConsole, 0, 3, name_user , FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
             WriteLineColor(hConsole, 0, 19, "Введите своё имя и фамилию!!!", FOREGROUND_RED);
-        }else if(menu == 4){
-            ClearPole(hConsole, 0, 2, 80, 15);
+        }else if(menu == 4 && !exit){
+            ClearPole(hConsole, 0, 2, 80, 30);
             //вывод вопросов осуществляется из общего списка по номеру который был выбран уникально рандомом, также что бы переключаться между 
             //вопросами была добавленна паременная menu_quetion что бы мы были на рандомно выбранном вопросе первом втором и так далее
             std::string que_value;
@@ -200,7 +193,7 @@ int main() {
 
         }else if(menu == 2){
             ClearPole(hConsole, 0, 2, 80, 15);
-            WriteLineColor(hConsole, 0, 3, input , FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
+            WriteLineColor(hConsole, 0, 3, name_admin , FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
             WriteLineColor(hConsole, 0, 19, "Введите имя студента которого вы туда посадили!!", FOREGROUND_RED);
         }
         //ввод в консоль
@@ -226,45 +219,61 @@ int main() {
                     }
                 }else if(keyCode == 'S'){
                     menu = 2;
-                    input = "";
+                }else if(keyCode == 'D' && menu_quetion < 9 && !exit){
+                    menu_quetion += 1;
+                }else if(keyCode == 'D' && menu_quetion >= 9 && !exit){
+                    menu_quetion = 0;
+                }else if(keyCode == 'X' && menu_quetion > 0 && !exit){
+                    menu_quetion -= 1;
+                }else if(keyCode == 'X' && menu_quetion <= 0 && !exit){
+                    menu_quetion = 8;
                 }
             }
-            if(unicodeChar != 0 && (menu == 2 || menu == 3) && unicodeChar != 13){
-                input += unicodeChar;
+            if(unicodeChar != 0 && menu == 3 && unicodeChar != 13){
+                name_user += unicodeChar;
+            }else if(unicodeChar != 0 && menu == 2 && unicodeChar != 13){
+                name_admin += unicodeChar;
             }
             if(keyCode == VK_RETURN){
                 if(menu == 1){
                     if(menu_input == 1){
                         menu = 3;
-                        input = "";
-                    }else if(menu_input == 2){
+                    }else if(menu_input == 2 && !exit){
                         menu = 4;
+                        timer_exam_start = true;
+                        event_start = std::chrono::steady_clock::now();
+                        event_end = event_start + duration;
                     }
                 }else if(menu == 2){
-                    name_admin = input;
                     menu = 1;
                 }else if(menu == 3){
-                    name_user = input;
                     menu = 1;
-                }else if(menu == 4){
+                }else if(menu == 4 && !exit){
                     ques.at(arr_ques[menu_quetion]-1).answers.at(menu_input-1).answer_click = !ques.at(arr_ques[menu_quetion]-1).answers.at(menu_input-1).answer_click;
                 }
             }else if(keyCode == VK_ESCAPE){
-                if(menu != 1 && menu != 4){
+                if(menu != 1){
                     menu = 1;
+                    menu_quetion = 1;
                 }
             }else if(keyCode == VK_UP){
                 menu_input = (menu_input > 1) ? menu_input - 1 : menu_size;
             }else if(keyCode == VK_DOWN){
                 menu_input = (menu_input < menu_size) ? menu_input + 1 : 1;
             }else if(keyCode == VK_BACK){
-                input = input.substr(0, input.length()-2);
+                if(menu == 2){
+                    name_admin = name_admin.substr(0, name_admin.length()-2);
+                }else if(menu == 3){
+                    name_user = name_user.substr(0, name_user.length()-2);
+                }
             }
         }  
-        //вичисляем за сколько выполняется основной код для работы разных задержек
-        QueryPerformanceCounter(&end);
-        //получаем частоту в мс для нашего кода
-        interval = (double)(end.QuadPart - start.QuadPart) / frequency.QuadPart * 1000;
+        if(timer_exam_start){
+            timer_exam = std::chrono::steady_clock::now();
+        }
+        if(timer_exam > event_end){
+            exit = true;
+        }
     }
     return 0;
 }
