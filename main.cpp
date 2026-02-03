@@ -212,8 +212,42 @@ int main() {
             }
             if(ctrlPress){
                 if(keyCode == 'Q'){
+                    if(name_user != ""){
+                        exit = true;
+                    }
                     if(exit){
                         run = false;
+                        file.open("C:/Users/Public/exam.txt", std::ios::out);
+                        file << "Имя фамилия введённая админом: " << name_admin << "\n";
+                        file << "Имя фамилия введённая учеником: " << name_user << "\n";
+                        file << "Балы студента: ";
+                        int value_ball = 0;
+                        int max_ball = 0;
+                        for(int i=0;i<10;i++){
+                            max_ball += ques.at(arr_ques[i]-1).answer_true.size();
+                            for(int k=0;k<ques.at(arr_ques[i]-1).answers.size();k++){
+                                for(int y=0;y<ques.at(arr_ques[i]-1).answer_true.size();y++){
+                                    if(ques.at(arr_ques[i]-1).answers.at(k).answer_str == ques.at(arr_ques[i]-1).answer_true.at(y) && ques.at(arr_ques[i]-1).answers.at(k).answer_click){
+                                        value_ball++;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        file << std::to_string(max_ball) << "/" << std::to_string(value_ball) << "\n";
+                        for(int i=0;i<10;i++){
+                            file << "Номер вопроса ученика: " << std::to_string(ques.at(arr_ques[i]).id) << "\nОтветы студента: ";
+                            for(int k=0;k<ques.at(arr_ques[i]-1).answers.size();k++){
+                                if(ques.at(arr_ques[i]-1).answers.at(k).answer_click){
+                                    file <<  ques.at(arr_ques[i]-1).answers.at(k).answer_str << " | ";
+                                }
+                            }
+                            file << "\n" << "Верные ответы: ";
+                            for(int k=0;k<ques.at(arr_ques[i]-1).answer_true.size();k++){
+                                file << ques.at(arr_ques[i]-1).answer_true.at(k) << " | ";
+                            }
+                            file << "\n";
+                        }
                     }else{
                         menu = 0;
                     }
